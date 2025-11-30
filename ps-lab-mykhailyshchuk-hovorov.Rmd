@@ -1,8 +1,8 @@
 ---
 title: "PS Lab 4 — Hypothesis Testing"
-author: 
-  - "Andriy Hovorov"
+author:
   - "Nazar Mykhailyshchuk"
+  - "Andriy Hovorov"
 date: "`r Sys.Date()`"
 output: 
   html_document:
@@ -12,6 +12,14 @@ output:
     number_sections: false
     df_print: paged
 ---
+
+## Work Breakdown Structure
+
+| Team Member | Estimated Effort | Responsibilities |
+|:-----------|:----------------:|:-----------------|
+| **Nazar Mykhailyshchuk** | 50% | Problems 1, 2, RMarkdown Setup |
+| **Andriy Hovorov** | 50% | Problems 3, 4, Conclusions |
+| **Total** | **100%** | |
 
 ```{r setup, echo=TRUE}
 library(ggplot2)
@@ -45,12 +53,12 @@ y <- samples$y
 
 ## Problem 1
 
-H0: mu1 = mu2 vs H1: mu1 != mu2 with sigma1^2 = sigma2^2 = 1 (known).
+**Hypotheses:** $H_0: \mu_1 = \mu_2$ vs. $H_1: \mu_1 \neq \mu_2$ with $\sigma_1^2 = \sigma_2^2 = 1$ (known).
 
-We use the z-test for difference of means because population variances are known and equal.
+We use the $z$-test for the difference of means because population variances are known and equal.
 
-General form of rejection region (two-sided, level alpha = 0.05): reject H0 if |Z| > z_{1-\alpha/2} = 1.96, where
-Z = (Xbar - Ybar) / sqrt(sigma1^2/n1 + sigma2^2/n2).
+**Rejection Region:** General form of the rejection region (two-sided, level $\alpha = 0.05$): reject $H_0$ if $|Z| > z_{1-\alpha/2} = 1.96$, where:
+$$Z = \frac{\bar{X} - \bar{Y}}{\sqrt{\frac{\sigma_1^2}{n_1} + \frac{\sigma_2^2}{n_2}}}$$
 
 ```{r prob1-beautiful, echo=TRUE, results='asis'}
 # --- PARAMETERS ---
@@ -155,10 +163,12 @@ cat(sprintf("95%% CI for (mu1 - mu2): [%.6f, %.6f]\n", ci_diff[1], ci_diff[2]))
 
 ## Problem 2
 
-H0: sigma1^2 = sigma2^2 vs H1: sigma1^2 > sigma2^2. Use the F-test (ratio of sample variances).
+**Hypotheses:** $H_0: \sigma_1^2 = \sigma_2^2$ vs. $H_1: \sigma_1^2 > \sigma_2^2$.
 
-For samples from normal distributions, the statistic F = S1^2 / S2^2 follows an F distribution with (n1-1, n2-1) degrees of freedom under H0.
-Rejection region (one-sided, alpha=0.05): reject H0 if F > F_{1-alpha; n1-1, n2-1}.
+We use the $F$-test (ratio of sample variances). For samples from normal distributions, the statistic follows an $F$-distribution with $(n_1-1, n_2-1)$ degrees of freedom under $H_0$:
+$$F = \frac{S_1^2}{S_2^2}$$
+
+**Rejection Region:** (one-sided, $\alpha=0.05$): reject $H_0$ if $F > F_{1-\alpha; n_1-1, n_2-1}$.
 
 ```{r prob2-beautiful, echo=TRUE, results='asis'}
 # --- PARAMETERS ---
