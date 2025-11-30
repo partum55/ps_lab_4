@@ -1,0 +1,258 @@
+---
+title: "PS Lab 4 — Hypothesis Testing"
+author: 
+  - "Andriy Hovorov"
+  - "Nazar Mykhailyshchuk"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+    number_sections: false
+    df_print: paged
+---
+
+```{r setup, echo=TRUE}
+library(ggplot2)
+library(knitr)
+```
+
+## Data generation helper
+
+We define the sequence a_k = { k * ln(k^2 * n + pi) } where {x} is fractional part, and then produce
+X_k = Phi^{-1}(a_k) for k=1..100 and Y_l = Phi^{-1}(a_{100+l}) for l=1..50.
+
+```{r gen-samples, echo=TRUE}
+# ---- TEAM 17 CONFIGURATION ----
+team_id <- 17
+frac <- function(x) x - floor(x)
+
+# Data Generation Function
+make_samples <- function(n){
+    k_all <- 1:150
+    # Formula: a_k = { k * ln(k^2 * n + pi) }
+    a_all <- sapply(k_all, function(k) frac(k * log(k^2 * n + pi)))
+    x <- qnorm(a_all[1:100])      # First 100 for X
+    y <- qnorm(a_all[101:150])    # Next 50 for Y
+    list(x = x, y = y)
+}
+
+samples <- make_samples(team_id)
+x <- samples$x
+y <- samples$y
+```
+
+## Problem 1
+
+H0: mu1 = mu2 vs H1: mu1 != mu2 with sigma1^2 = sigma2^2 = 1 (known).
+
+We use the z-test for difference of means because population variances are known and equal.
+
+General form of rejection region (two-sided, level alpha = 0.05): reject H0 if |Z| > z_{1-\alpha/2} = 1.96, where
+Z = (Xbar - Ybar) / sqrt(sigma1^2/n1 + sigma2^2/n2).
+
+```{r prob1-beautiful, echo=TRUE, results='asis'}
+# --- PARAMETERS ---
+sigma_sq <- 1       # Known variance
+alpha <- 0.05       # Significance level
+n1 <- length(x)
+n2 <- length(y)
+
+# --- CALCULATIONS ---
+mu1_hat <- mean(x)
+mu2_hat <- mean(y)
+se <- sqrt(sigma_sq/n1 + sigma_sq/n2)
+Z_stat <- (mu1_hat - mu2_hat) / se
+p_val_z <- 2 * pnorm(-abs(Z_stat))  # Two-sided p-value
+crit_z <- qnorm(1 - alpha/2)
+
+# --- BEAUTIFUL TABLE ---
+# We create a dataframe and print it using kable()
+results_df <- data.frame(
+  Statistic = c("Sample Mean (X)", "Sample Mean (Y)", "Standard Error", "Z-Statistic", "P-Value"),
+  Value = c(sprintf("%.4f", mu1_hat), 
+            sprintf("%.4f", mu2_hat), 
+            sprintf("%.4f", se), 
+            sprintf("%.4f", Z_stat), 
+            sprintf("%.4g", p_val_z))
+)
+
+cat("### Test Results Summary\n")
+print(knitr::kable(results_df, caption = "Problem 1: Z-Test for Difference of Means", align = "lr"))
+
+# --- AUTOMATED CONCLUSION TEXT ---
+cat("\n### Conclusion\n")
+
+if(p_val_z < alpha) {
+  # REJECT CASE
+  cat(paste0(
+    "> **Decision: Reject Null Hypothesis ($H_0$)** \n",
+    "> \n",
+    "> We conducted a two-sided Z-test at the 0.05 significance level. ",
+    "The calculated Z-statistic is **", round(Z_stat, 3), "**, corresponding to a p-value of **", format(p_val_z, digits=4), "**. ",
+    "Since the p-value is less than $\\alpha = 0.05$, we have sufficient statistical evidence to reject $H_0$. ",
+    "Therefore, we conclude that there is a significant difference between the means $\\mu_1$ and $\\mu_2$."
+  ))
+} else {
+  # FAIL TO REJECT CASE
+  cat(paste0(
+    "> **Decision: Fail to Reject Null Hypothesis ($H_0$)** \n",
+    "> \n",
+    "> We conducted a two-sided Z-test at the 0.05 significance level. ",
+    "The calculated Z-statistic is **", round(Z_stat, 3), "**, corresponding to a p-value of **", format(p_val_z, digits=4), "**. ",
+    "Since the p-value is greater than $\\alpha = 0.05$, we do not have sufficient evidence to reject $H_0$. ",
+    "Therefore, we cannot claim that there is a significant difference between the means $\\mu_1$ and $\\mu_2$."
+  ))
+}
+```
+
+### Comments
+
+- **Test used**: z-test for difference of two means with known variances (sigma^2 = 1).
+- **Why**: population variances are given as equal and known, so the normal (z) statistic applies.
+- **Interpretation**: see printed statistic, p-value, and decision above.
+
+## Exploratory plots and extra stats (Problems 1 & 2)
+
+```{r prob1-extra, echo=TRUE, fig.height=4, fig.width=7}
+# Summary table
+summary_df <- data.frame(
+	group = c("x","y"),
+	n = c(n1, n2),
+	mean = c(mu1_hat, mu2_hat),
+	sd = c(sd(x), sd(y)),
+	var = c(var(x), var(y))
+)
+knitr::kable(summary_df, digits = 5)
+
+# Histogram and density overlay (ggplot2)
+df <- data.frame(value = c(x, y), group = factor(rep(c("x","y"), c(n1, n2))))
+library(ggplot2)
+p_hist <- ggplot(df, aes(x = value, fill = group)) +
+	geom_histogram(aes(y = ..density..), position = "identity", alpha = 0.4, bins = 30) +
+	geom_density(alpha = 0.2) +
+	theme_minimal() +
+	labs(title = "Histogram & density: x vs y")
+print(p_hist)
+
+# QQ-plots (base)
+op <- par(no.readonly = TRUE)
+par(mfrow = c(1,2))
+qqnorm(x, main = "QQ-plot x"); qqline(x)
+qqnorm(y, main = "QQ-plot y"); qqline(y)
+par(op)
+
+# Boxplots
+boxplot(x, y, names = c("x", "y"), main = "Boxplots: x (left) vs y (right)")
+
+# Confidence interval for difference of means (z-based, sigma^2 known)
+diff_mean <- mu1_hat - mu2_hat
+z <- qnorm(0.975)
+ci_diff <- diff_mean + c(-1, 1) * z * se
+cat(sprintf("95%% CI for (mu1 - mu2): [%.6f, %.6f]\n", ci_diff[1], ci_diff[2]))
+```
+
+## Problem 2
+
+H0: sigma1^2 = sigma2^2 vs H1: sigma1^2 > sigma2^2. Use the F-test (ratio of sample variances).
+
+For samples from normal distributions, the statistic F = S1^2 / S2^2 follows an F distribution with (n1-1, n2-1) degrees of freedom under H0.
+Rejection region (one-sided, alpha=0.05): reject H0 if F > F_{1-alpha; n1-1, n2-1}.
+
+```{r prob2-beautiful, echo=TRUE, results='asis'}
+# --- PARAMETERS ---
+alpha <- 0.05
+
+# --- CALCULATIONS ---
+S1_sq <- var(x)
+S2_sq <- var(y)
+F_stat <- S1_sq / S2_sq
+df1 <- n1 - 1
+df2 <- n2 - 1
+
+# One-sided P-value (Right tail, checking if var1 > var2)
+p_val_f <- 1 - pf(F_stat, df1, df2) 
+crit_f <- qf(1 - alpha, df1, df2)
+
+# --- BEAUTIFUL TABLE ---
+f_results <- data.frame(
+  Metric = c("Variance (X)", "Variance (Y)", "F-Statistic", "Degrees of Freedom", "Critical Value", "P-Value"),
+  Value = c(sprintf("%.4f", S1_sq), 
+            sprintf("%.4f", S2_sq), 
+            sprintf("%.4f", F_stat), 
+            sprintf("(%d, %d)", df1, df2),
+            sprintf("%.4f", crit_f),
+            sprintf("%.4g", p_val_f))
+)
+
+cat("### Test Results Summary\n")
+print(knitr::kable(f_results, caption = "Problem 2: F-Test for Variances (H1: s1 > s2)", align = "lr"))
+
+# --- AUTOMATED CONCLUSION TEXT ---
+cat("\n### Conclusion\n")
+
+if(p_val_f < alpha) {
+  # REJECT CASE
+  cat(paste0(
+    "> **Decision: Reject Null Hypothesis ($H_0$)** \n",
+    "> \n",
+    "> We conducted a one-sided F-test to determine if the variance of the first population is greater than the second. ",
+    "The calculated F-statistic is **", round(F_stat, 3), "** with a p-value of **", format(p_val_f, digits=4), "**. ",
+    "Since the p-value is less than $\\alpha = 0.05$, we reject $H_0$ in favor of $H_1$. ",
+    "We have statistically significant evidence to conclude that $\\sigma_1^2 > \\sigma_2^2$."
+  ))
+} else {
+  # FAIL TO REJECT CASE
+  cat(paste0(
+    "> **Decision: Fail to Reject Null Hypothesis ($H_0$)** \n",
+    "> \n",
+    "> We conducted a one-sided F-test to determine if the variance of the first population is greater than the second. ",
+    "The calculated F-statistic is **", round(F_stat, 3), "** with a p-value of **", format(p_val_f, digits=4), "**. ",
+    "Since the p-value is greater than $\\alpha = 0.05$, we fail to reject $H_0$. ",
+    "There is insufficient evidence to support the claim that $\\sigma_1^2$ is strictly greater than $\\sigma_2^2$."
+  ))
+}
+```
+
+### Comments
+
+- **Test used**: F-test (ratio of sample variances).
+- **Why**: comparing variances; under normality the ratio of sample variances has F distribution.
+- **Interpretation**: see printed statistic, p-value, and decision above.
+
+## Problem 3 (template)
+
+Place for Kolmogorov–Smirnov tests.
+
+- (a) Test if `{x_k}` are normally distributed (parameters estimated from sample).
+- (b) Test if `{ |x_k| }` are exponentially distributed with lambda = 1.
+- (c) Test if `{x_k}` and `{y_l}` have the same distribution.
+
+Add R code to run `ks.test` with appropriate parameters and to interpret p-values.
+
+```{r prob3-template, echo=TRUE}
+# TODO: add ks.test calls and interpretation here
+## Example:
+# ks.test(x, "pnorm", mean(x), sd(x)) # (a)
+# ks.test(abs(x), "pexp", 1)         # (b)
+# ks.test(x, y)                       # (c)
+```
+
+## Problem 4 (template)
+
+Working with `data.csv` to fit regression of Marks ~ StudyTime.
+
+- (a) Scatter plot of Marks vs Study Time.
+- (b) Fit linear regression, show equation.
+- (c) Evaluate R^2 and residuals.
+- (d) Test significance of study time (t-test for slope).
+- (e) Predict mark for StudyTime = 8 with interval.
+- (f) Suggest improvements.
+
+```{r prob4-template, echo=TRUE}
+# TODO: read data.csv and fill in analysis
+# data <- read.csv("data.csv")
+# plot, lm, summary, predict()
+```
+
