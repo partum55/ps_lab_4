@@ -52,6 +52,21 @@ hist(x, col="cyan")
 hist(y, col="magenta")
 ```
 
+```{r}
+qqplot(x, y)
+```
+
+QQ-plot implies x and y have similar distributions
+
+```{r}
+plot(x, pch=19, main="x")
+plot(y, pch=19, main="y")
+
+plot(x[1:50],y, pch=19, main="Scatter plot")
+```
+
+Scatter plot shows there is no relation between x and y
+
 ## Problem 1
 
 **Hypotheses:** $H_0: \mu_1 = \mu_2$ vs. $H_1: \mu_1 \neq \mu_2$ with $\sigma_1^2 = \sigma_2^2 = 1$ (known).
@@ -293,7 +308,7 @@ abline(study.model, col = "red")
 The goal of OLS Linear Regression is to find the best fit line that minimizes the sum of the squared residuals between the observed data points and the line. This line is represented by the equation:
 
 $$
-\hat{Y}=a+bx
+\hat{Y}=a+bx+\varepsilon
 $$
 
 $a$ and $b$ are estimated with their respected estimators.
@@ -345,6 +360,14 @@ The manually calculated values coincide with those in model summary (T-statistic
 
 The t for the slope coefficient gave t-statistic of $27.85$ and a corresponding $p$-value effectively equal to zero ($< 2e-16$) with 98 degrees of freedom. Since the p-value is far below the $0.05$ significance level, we **reject the null hypothesis** ($H_0: b = 0$). We conclude with strong statistical evidence that Study Time is a highly significant predictor of Marks in this dataset.
 
+To make some predictions we need to use the estimated coefficients which have the following estimators:
+
+$$
+\hat{a} = \bar{Y}-\hat{b}\bar{x} \qquad \qquad \hat{b}=\dfrac{S_{xY}}{S_{xx}}=\dfrac{\sum(x_i-\bar{x})(Y_i-\bar{Y})}{\sum (x_i-\bar{x})^2}
+$$
+
+These values i extract from summary of the model
+
 ```{r}
 coefficients(study.model)
 
@@ -358,3 +381,17 @@ cat("Predicted grade is", predicted_marks, "\n")
 1.  We could try to handle some outliers
 2.  Try to use polynomial regression model (for curve)
 3.  If there is data available we could try multivariable regression and base our prediction not only on study time.
+
+## Conclusions
+
+In this lab we conducted tests on some samples and examined assumptions of their mean and variance, their distributions and also used datasets and tried to construct linear regression model
+
+First, comparison of means and variances:
+
+For problem 1, a two-sided z-test comparing two population means ($\mu_1$ and $\mu_2$) at a $0.05$ significance level resulted in a z-statistic of $-1.444$ and a p-value of $0.1486$. Since the p-value was greater than the significance level ($0.1486 > 0.05$), the null hypothesis was not rejected, indicating insufficient statistical evidence to claim a significant difference between the population means.
+
+For problem 2, an f-test was used to check the one-sided hypothesis that the first variance was greater than the second ($H_1: \sigma_1^2 > \sigma_2^2$). The resulting f-statistic of $0.921$ was less than the critical value of $1.531$, producing a p-value of $0.641$. Consequently, the null hypothesis of equal variances was not rejected, suggesting the population variances are not significantly different.
+
+Next, we practiced distribution fitting and regression:
+
+Problems 3 and 4 extended the analysis beyond simple parameter comparisons. The Kolmogorov and Kolmogorov-Smirnov test was used to assess the goodness-of-fit for specified theoretical distributions, namely the normal and exponential distributions, against the sample data. We also compared similarity of two distributions of x and y. Furthermore, a linear regression analysis was performed on study time and marks data. This involved fitting a model, evaluating its overall goodness-of-fit, and using hypothesis testing (specifically, a t-test) to determine the statistical significance of study time as a predictor for marks. The laboratory successfully demonstrated the full cycle of statistical inference, moving from generating hypotheses and calculating test statistics to making data-driven conclusions about population properties and predictive relationships.
