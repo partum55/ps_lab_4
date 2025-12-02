@@ -23,6 +23,8 @@ output:
 
 ```{r}
 library(ggplot2)
+library(knitr)
+library(dplyr)
 ```
 
 ## Data generation helper
@@ -48,21 +50,43 @@ y <- samples$y
 ```
 
 ```{r}
-hist(x, col="cyan")
-hist(y, col="magenta")
+df_xy <- tibble(value = c(x,y), group = factor(rep(c("x","y"), c(length(x), length(y)))))
+
+ggplot(df_xy, aes(x = value, fill = group)) +
+      geom_histogram(aes(y = ..density..), position = "identity", alpha = 0.4, bins = 30) +
+      geom_density(alpha = 0.3) +
+      facet_wrap(~group, scales = "free") +
+      theme_minimal() +
+      labs(title = "Histograms and densities of x and y", x = "Value", y = "Density")
 ```
 
 ```{r}
-qqplot(x, y)
+ggplot() +
+      geom_qq(aes(sample = x), colour = "steelblue") +
+      geom_qq_line(aes(sample = x), colour = "steelblue") +
+      labs(title = "QQ-plot: x (against theoretical normal)")
 ```
 
 QQ-plot implies x and y have similar distributions
 
 ```{r}
-plot(x, pch=19, main="x")
-plot(y, pch=19, main="y")
+p1 <- ggplot(data.frame(x = x), aes(seq_along(x), x)) +
+      geom_point(alpha = 0.6) +
+      labs(title = "Series plot of x", x = "Index", y = "x") +
+      theme_minimal()
 
-plot(x[1:50],y, pch=19, main="Scatter plot")
+p2 <- ggplot(data.frame(y = y), aes(seq_along(y), y)) +
+      geom_point(alpha = 0.6, colour = "darkorange") +
+      labs(title = "Series plot of y", x = "Index", y = "y") +
+      theme_minimal()
+
+p3 <- ggplot(data.frame(x = x[1:50], y = y), aes(x = x, y = y)) +
+      geom_point(alpha = 0.6) +
+      labs(title = "Scatter: x[1:50] vs y", x = "x[1:50]", y = "y") +
+      theme_minimal()
+
+library(gridExtra)
+grid.arrange(p1, p2, p3, ncol = 3)
 ```
 
 Scatter plot shows there is no relation between x and y
@@ -100,38 +124,28 @@ Z_stat <- sqrt((n1*n2)/(n1+n2))*((mu1_hat-mu2_hat)/(sigma))
 crit_z <- qnorm(1 - alpha/2)
 p_val_z <- 2 * pnorm(-abs(Z_stat))
 
-#result
-cat("+++++ Task 1. Testing means of two distributions +++++\n")
-cat("H_0: mu1 = mu2   vs   H_1: mu1 != mu2\n")
-cat("|",Z_stat,"|", ">", crit_z, "\n",sep="")
-cat("p-value = ", p_val_z, "\n", sep="")
-cat("----- Estimated values -----\n")
-cat("mu1_hat = ", mu1_hat, "   ;   ", "mu2_hat = ", mu2_hat, "\n", sep="")
+# Nicely formatted result table
+res1 <- tibble(
+      statistic = "Z",
+      value = Z_stat,
+      `critical value` = crit_z,
+      p_value = p_val_z,
+      decision = ifelse(abs(Z_stat) > crit_z, "Reject H0", "Fail to reject H0")
+)
+
+cat("### Task 1: Test for equality of means\n")
+knitr::kable(res1, digits = c(NA, 5, 3, 6, NA))
+
+# Summary stats table
+summary_df <- tibble(group = c("x","y"), n = c(n1,n2), mean = c(mu1_hat, mu2_hat), sd = c(sd(x), sd(y)), var = c(var(x), var(y)))
+knitr::kable(summary_df, digits = 5)
+
+# 95% CI for difference (z-based)
+se <- sqrt(sigma^2/n1 + sigma^2/n2)
+ci_diff <- (mu1_hat - mu2_hat) + c(-1,1) * qnorm(0.975) * se
+cat(sprintf("\n95%% z-based CI for (mu1 - mu2): [%.5f, %.5f]\n", ci_diff[1], ci_diff[2]))
 ```
 
-### Comments
-
--   **Test used**: z-test for difference of two means with known variances (sigma\^2 = 1).
-
--   **Why**: population variances are given as equal and known, so the normal (z) statistic applies.
-
--   **Interpretation**: see printed statistic, p-value, and decision above.
-
-Conclusion **Decision: Fail to Reject Null Hypothesis (**$H_0$)
-
-We conducted a two-sided Z-test at the 0.05 significance level. The calculated Z-statistic is **-1.444**, corresponding to a p-value of **0.1486**. Since the p-value is greater than $\alpha = 0.05$, we do not have sufficient evidence to reject $H_0$. Therefore, we cannot claim that there is a significant difference between the means $\mu_1$ and $\mu_2$. Although estiamtes show that there is indeed a difference in means.
-
-## Problem 2
-
-**Hypotheses:** $H_0: \sigma_1^2 = \sigma_2^2$ vs. $H_1: \sigma_1^2 > \sigma_2^2$.
-
-We use the $F$-test (ratio of sample variances). For samples from normal distributions, the statistic follows an $F$-distribution with $(n_1-1, n_2-1)$ degrees of freedom under $H_0$: $$F(X,Y) = \frac{S_{XX}/(n_1-1)}{S_{YY}/(n_2-1)}$$
-
-**Rejection Region:** (one-sided, $\alpha=0.05$): reject $H_0$ if $f(x,y) > \mathcal{F}^{(n_1-1, n_2-1)}_{1-\alpha}$.
-
-p-value is $p(x,y) = 1-F_{\mathcal{F}}(f(x,y))$
-
-```{r}
 alpha <- 0.05
 
 S1 <- var(x)
@@ -140,18 +154,37 @@ F_stat <- S1 / S2
 df1 <- n1 - 1
 df2 <- n2 - 1
 
-
 p_val_f <- 1 - pf(F_stat, df1, df2) 
 crit_f <- qf(1 - alpha, df1, df2)
 
-#result
-cat("+++++ Task 2. Testing variances of two distributions with unknown means+++++\n")
-cat("H_0: sigma^2_1 = sigma^2_2   vs   H_1: sigma^2_1 != sigma^2_2\n")
-cat(F_stat, " > ", crit_f, "\n",sep="")
-cat("p-value = ", p_val_f, "\n", sep="")
-cat("----- Estimated values -----\n")
-cat("S1 = ", S1, "   ;   ", "S2 = ", S2, "\n", sep="")
-```
+# Nicely formatted result table for F-test
+res2 <- tibble(
+      statistic = "F",
+      value = F_stat,
+      df = paste0(df1, ",", df2),
+      `critical value (1-alpha)` = crit_f,
+      p_value = p_val_f,
+      decision = ifelse(F_stat > crit_f, "Reject H0", "Fail to reject H0")
+)
+
+cat("### Task 2: Test for equality of variances\n")
+knitr::kable(res2, digits = c(NA, 5, NA, 5, 6, NA))
+
+# Print sample variances nicely
+var_df <- tibble(group = c("x","y"), variance = c(S1, S2))
+knitr::kable(var_df, digits = 6)
+
+# Add var.test() output (CI for ratio)
+vt <- var.test(x, y, alternative = "greater")
+vt_df <- tibble(statistic = as.numeric(vt$statistic), parameter = paste0(vt$parameter[1],",",vt$parameter[2]), p_value = vt$p.value,
+                                                conf_low = vt$conf.int[1], conf_high = vt$conf.int[2])
+knitr::kable(vt_df, digits = c(5, NA, 6, 6, 6))
+**Rejection Region:** (one-sided, $\alpha=0.05$): reject $H_0$ if $f(x,y) > \mathcal{F}^{(n_1-1, n_2-1)}_{1-\alpha}$.
+
+p-value is $p(x,y) = 1-F_{\mathcal{F}}(f(x,y))$
+
+p_val_f <- 1 - pf(F_stat, df1, df2) 
+
 
 ### Comments
 
@@ -170,8 +203,11 @@ We conducted a one-sided F-test to determine if the variance of the first popula
 ## Problem 3
 
 ```{r}
-plot(ecdf(x), col="cyan")
-plot(ecdf(y), col="magenta")
+ggplot() +
+      stat_ecdf(aes(x = x), colour = "cyan") +
+      stat_ecdf(aes(x = y), colour = "magenta") +
+      labs(title = "Empirical CDFs: x (cyan) vs y (magenta)") +
+      theme_minimal()
 ```
 
 ### (a)
