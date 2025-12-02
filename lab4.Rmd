@@ -1,0 +1,202 @@
+---
+title: "PS Lab 4 — Hypothesis Testing"
+author:
+  - "Nazar Mykhailyshchuk"
+  - "Andrii Hovorov"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+    number_sections: false
+    df_print: paged
+---
+
+## Work Breakdown Structure
+
+| Team Member              | Estimated Effort | Responsibilities               |
+|:-------------------------|:----------------:|:-------------------------------|
+| **Nazar Mykhailyshchuk** |       50%        | Problems 1, 2, RMarkdown Setup |
+| **Andriy Hovorov**       |       50%        | Problems 3, 4, Conclusions     |
+| **Total**                |     **100%**     |                                |
+
+```{r}
+library(ggplot2)
+```
+
+## Data generation helper
+
+We define the sequence $a_k = { k * ln(k^2 * n + pi) }$ where ${x}$ is fractional part, and then produce $X_k = Phi^{-1}(a_k)$ for k=1..100 and $Y_l = Phi^{-1}(a_{100+l})$ for l=1..50.
+
+```{r}
+team_id <- 17
+frac <- function(x) x - floor(x)
+
+make_samples <- function(n){
+    k_all <- 1:150
+    #a_k = { k * ln(k^2 * n + pi) }
+    a.data <- sapply(k_all, function(k) frac(k * log(k^2 * n + pi)))
+    x <- qnorm(a.data[1:100])
+    y <- qnorm(a.data[101:150])
+    list(x = x, y = y)
+}
+
+samples <- make_samples(team_id)
+x <- samples$x
+y <- samples$y
+```
+
+## Problem 1
+
+**Hypotheses:** $H_0: \mu_1 = \mu_2$ vs. $H_1: \mu_1 \neq \mu_2$ with $\sigma_1^2 = \sigma_2^2 = 1$ (known).
+
+We use the $z$-test for the difference of means because population variances are known and equal.
+
+The test statistic is
+
+$$Z(X,Y) = \frac{\bar{X} - \bar{Y}}{\sqrt{\frac{\sigma_1^2}{n_1} + \frac{\sigma_2^2}{n_2}}}$$
+
+which is the same as
+
+$$
+Z(X,Y)=\sqrt{\dfrac{n_1n_2}{n_1+n_2}}\dfrac{\bar{X}-\bar{Y}}{\sigma}
+$$
+
+**Rejection Region:** General form of the rejection region (two-sided, level $\alpha = 0.05$): reject $H_0$ if $|z(x,y)| > z_{1-\alpha/2} = 1.96$
+
+the p-value is $p(x,y)=2\Phi(-|z(x,y)|)$
+
+```{r}
+sigma <- 1
+alpha <- 0.05
+n1 <- length(x)
+n2 <- length(y)
+
+mu1_hat <- mean(x)
+mu2_hat <- mean(y)
+Z_stat <- sqrt((n1*n2)/(n1+n2))*((mu1_hat-mu2_hat)/(sigma))
+
+crit_z <- qnorm(1 - alpha/2)
+p_val_z <- 2 * pnorm(-abs(Z_stat))
+
+#result
+cat("+++++ Task 1. Testing means of two distributions +++++\n")
+cat("H_0: mu1 = mu2   vs   H_1: mu1 != mu2\n")
+cat("|",Z_stat,"|", ">", crit_z, "\n",sep="")
+cat("p-value = ", p_val_z, "\n", sep="")
+cat("----- Estimated values -----\n")
+cat("mu1_hat = ", mu1_hat, "   ;   ", "mu2_hat = ", mu2_hat, "\n", sep="")
+```
+
+### Comments
+
+-   **Test used**: z-test for difference of two means with known variances (sigma\^2 = 1).
+
+-   **Why**: population variances are given as equal and known, so the normal (z) statistic applies.
+
+-   **Interpretation**: see printed statistic, p-value, and decision above.
+
+Conclusion **Decision: Fail to Reject Null Hypothesis (**$H_0$)
+
+We conducted a two-sided Z-test at the 0.05 significance level. The calculated Z-statistic is **-1.444**, corresponding to a p-value of **0.1486**. Since the p-value is greater than $\alpha = 0.05$, we do not have sufficient evidence to reject $H_0$. Therefore, we cannot claim that there is a significant difference between the means $\mu_1$ and $\mu_2$. Although estiamtes show that there is indeed a difference in means.
+
+## Problem 2
+
+**Hypotheses:** $H_0: \sigma_1^2 = \sigma_2^2$ vs. $H_1: \sigma_1^2 > \sigma_2^2$.
+
+We use the $F$-test (ratio of sample variances). For samples from normal distributions, the statistic follows an $F$-distribution with $(n_1-1, n_2-1)$ degrees of freedom under $H_0$: $$F(X,Y) = \frac{S_{XX}/(n_1-1)}{S_{YY}/(n_2-1)}$$
+
+**Rejection Region:** (one-sided, $\alpha=0.05$): reject $H_0$ if $f(x,y) > \mathcal{F}^{(n_1-1, n_2-1)}_{1-\alpha}$.
+
+p-value is $p(x,y) = 1-F_{\mathcal{F}}(f(x,y))$
+
+```{r}
+alpha <- 0.05
+
+S1 <- var(x)
+S2 <- var(y)
+F_stat <- S1 / S2
+df1 <- n1 - 1
+df2 <- n2 - 1
+
+
+p_val_f <- 1 - pf(F_stat, df1, df2) 
+crit_f <- qf(1 - alpha, df1, df2)
+
+#result
+cat("+++++ Task 2. Testing variances of two distributions with unknown means+++++\n")
+cat("H_0: sigma^2_1 = sigma^2_2   vs   H_1: sigma^2_1 != sigma^2_2\n")
+cat(F_stat, " > ", crit_f, "\n",sep="")
+cat("p-value = ", p_val_f, "\n", sep="")
+cat("----- Estimated values -----\n")
+cat("S1 = ", S1, "   ;   ", "S2 = ", S2, "\n", sep="")
+```
+
+### Comments
+
+-   **Test used**: F-test (ratio of sample variances).
+-   **Why**: comparing variances; under normality the ratio of sample variances has F distribution.
+-   **Interpretation**: see printed statistic, p-value, and decision above. \### Conclusion **Decision: Fail to Reject Null Hypothesis (**$H_0$)
+
+We conducted a one-sided F-test to determine if the variance of the first population is greater than the second. The calculated F-statistic is **0.921** with a p-value of **0.6412**. Since the p-value is greater than $\alpha = 0.05$, we fail to reject $H_0$. There is insufficient evidence to support the claim that $\sigma_1^2$ is strictly different than $\sigma_2^2$.
+
+## Problem 3 (template)
+
+Place for Kolmogorov–Smirnov tests.
+
+-   
+
+    (a) Test if `{x_k}` are normally distributed (parameters estimated from sample).
+
+-   
+
+    (b) Test if `{ |x_k| }` are exponentially distributed with lambda = 1.
+
+-   
+
+    (c) Test if `{x_k}` and `{y_l}` have the same distribution.
+
+Add R code to run `ks.test` with appropriate parameters and to interpret p-values.
+
+```{r prob3-template, echo=TRUE}
+# TODO: add ks.test calls and interpretation here
+## Example:
+# ks.test(x, "pnorm", mean(x), sd(x)) # (a)
+# ks.test(abs(x), "pexp", 1)         # (b)
+# ks.test(x, y)                       # (c)
+```
+
+## Problem 4 (template)
+
+Working with `data.csv` to fit regression of Marks \~ StudyTime.
+
+-   
+
+    (a) Scatter plot of Marks vs Study Time.
+
+-   
+
+    (b) Fit linear regression, show equation.
+
+-   
+
+    (c) Evaluate R\^2 and residuals.
+
+-   
+
+    (d) Test significance of study time (t-test for slope).
+
+-   
+
+    (e) Predict mark for StudyTime = 8 with interval.
+
+-   
+
+    (f) Suggest improvements.
+
+```{r prob4-template, echo=TRUE}
+# TODO: read data.csv and fill in analysis
+# data <- read.csv("data.csv")
+# plot, lm, summary, predict()
+```
